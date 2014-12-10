@@ -15,7 +15,7 @@
         <dependency>
             <groupId>com.dendreon.datatree</groupId>
             <artifactId>datatree-core</artifactId>
-            <version>${project.version}</version>
+            <version>1.2.0.1</version>
         </dependency>
         <dependency>
             <groupId>joda-time</groupId>
