@@ -5,6 +5,7 @@ import com.dendreon.datatree.DataSource;
 import com.dendreon.datatree.DataTree;
 import com.dendreon.datatree.OrderArgument;
 import com.dendreon.datatree.PropertyMapping;
+import com.dendreon.datatree.ViewState;
 import com.dendreon.datatree.impl.DataNodeImpl;
 import com.dendreon.datatree.impl.OrderArgumentImpl;
 import com.dendreon.datatree.impl.OrderImpl;
@@ -136,7 +137,7 @@ public abstract class AbstractJDBCNode extends DataNodeImpl {
 			LoggerFactory.getLogger(getClass()).debug(
 					"Column [" + dataSource.getColumnName(i) + "] has type [" + dataSource.getColumnType(i).getSimpleName()
 							+ "]");
-			columnTypes.put(dataSource.getColumnName(i), dataSource.getColumnType(i));
+			columnTypes.put(dataSource.getColumnName(i).toUpperCase(), dataSource.getColumnType(i));
 		}
 	}
 
@@ -145,7 +146,7 @@ public abstract class AbstractJDBCNode extends DataNodeImpl {
 			initColumnTypes();
 		}
 
-		Class vColumnType = columnTypes.get(aColumnName);
+		Class vColumnType = columnTypes.get(aColumnName.toUpperCase());
 
 		if (vColumnType == null) {
 			LoggerFactory.getLogger(getClass()).warn("Did not find column type for column named [" + aColumnName + "]");
@@ -169,4 +170,5 @@ public abstract class AbstractJDBCNode extends DataNodeImpl {
 		}
 		setSortOrder(order);
 	}
+	
 }

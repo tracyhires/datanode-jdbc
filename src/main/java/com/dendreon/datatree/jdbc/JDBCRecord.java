@@ -11,20 +11,20 @@ import com.dendreon.datatree.OutputSourceRecord;
 
 public class JDBCRecord implements InputSourceRecord, OutputSourceRecord
 {
-    private final ResultSet resultSet;
     private final ResultSetMetaData metaData;
     private final Map<String, Object> data;
 
     public JDBCRecord(ResultSet resultSet)
     {
-        this.resultSet = resultSet;
         data = new HashMap<String, Object>();
         if (resultSet != null) {
         	try {
 				metaData = resultSet.getMetaData();
 	        	if (!resultSet.isAfterLast() && !resultSet.isBeforeFirst()) {
 	        		for(int i = 1; i <= metaData.getColumnCount(); i++) {
-	        			data.put(metaData.getColumnName(i), resultSet.getObject(i));
+	        			String columnName = metaData.getColumnName(i);
+	        			Object columnValue = resultSet.getObject(i);
+	        			data.put(columnName, columnValue);
 	        		}
 	        	}
 			} catch (SQLException e) {
@@ -37,9 +37,8 @@ public class JDBCRecord implements InputSourceRecord, OutputSourceRecord
 
     public Object getValue(String property)
     {
-        if (property != null && data.containsKey(property))
-        {
-        	return data.get(property);
+        if (property != null && data.containsKey(property)) {
+    		return data.get(property);
         }
 
         return null;

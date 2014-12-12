@@ -2,6 +2,8 @@ package com.dendreon.datatree.jdbc;
 
 import com.dendreon.datatree.*;
 import com.dendreon.intellivenge.dataservice.DataService;
+import com.dendreon.intellivenge.dataservice.DataServiceFactory;
+import com.dendreon.intellivenge.dataservice.JoinParameter;
 import com.dendreon.intellivenge.dataservice.QueryParameter;
 import com.dendreon.intellivenge.dataservice.QueryType;
 
@@ -32,11 +34,12 @@ public class JDBCSource implements InputSource, QueryableInputSource, OutputSour
     private final String[] joinTables;
     private final JoinArgument[] joinArguments;
     private List<JDBCColumn> columns;
-    private List<QueryParameter> joinParameters;
+    private List<JoinParameter> joinParameters;
     private List<QueryParameter> staticQueryParameters;
     private List<QueryArgument> staticQueryArguments;
     private DataService dataService;
     private String[] identifyingColumns;
+    private List<String> queryColumns;
     
     public JDBCSource(String table)
     {
@@ -45,14 +48,18 @@ public class JDBCSource implements InputSource, QueryableInputSource, OutputSour
 
     public JDBCSource(String table, String[] joinTables, JoinArgument[] joinArguments)
     {
-    	this.table = table;
+    	this.dataService = new DataServiceFactory().createDataService();
+     	this.table = table;
     	this.joinTables = joinTables;
     	this.joinArguments = joinArguments;
     	generateColumns(table);
-    	for(String joinTable : joinTables) {
-    		generateColumns(joinTable);
+    	if (joinTables != null) {
+	    	for(String joinTable : joinTables) {
+	    		generateColumns(joinTable);
+	    	}
     	}
-    	initJoinQueryParameters();
+    	
+    	initJoinParameters();
     }
     
     private void generateColumns(String tableName) {
@@ -62,7 +69,7 @@ public class JDBCSource implements InputSource, QueryableInputSource, OutputSour
 
     	String baseName = "";
     	if (joinTables != null && joinTables.length > 0) {
-    		baseName = tableName + ".";
+    		baseName = tableName.toUpperCase() + ".";
     	}
     	try {
     		ResultSetMetaData tableMetaData = dataService.describeTable(tableName);
@@ -70,6 +77,7 @@ public class JDBCSource implements InputSource, QueryableInputSource, OutputSour
 	    		String name = baseName + tableMetaData.getColumnName(i);
 	    		Class type = javaTypeFromSqlType(tableMetaData.getColumnType(i));
 	    		columns.add(new JDBCColumn(type, name));
+	    		this.addQueryColumn(name);
 	    	}
 		} catch (SQLException e) {
 			throw new RuntimeException("Couldn't index columns on table " + tableName, e);
@@ -80,47 +88,43 @@ public class JDBCSource implements InputSource, QueryableInputSource, OutputSour
     
     private Class javaTypeFromSqlType(int sqlType) {
     	switch (sqlType) {
-    	case java.sql.Types.BIT:
-    	case java.sql.Types.TINYINT:
-    		return Byte.class;
-    	case java.sql.Types.SMALLINT:
-    	case java.sql.Types.INTEGER:
-    		return Integer.class;
-    	case java.sql.Types.BIGINT:
-    		return Long.class;
-    	case java.sql.Types.FLOAT:
-    		return Float.class;
-    	case java.sql.Types.REAL:
-    	case java.sql.Types.DOUBLE:
-    		return Double.class;
+    	case java.sql.Types.CHAR:
+    	case java.sql.Types.LONGVARCHAR:
+    	case java.sql.Types.VARCHAR:
+    		return String.class;
+    	case java.sql.Types.NUMERIC:
     	case java.sql.Types.DECIMAL:
     		return BigDecimal.class;
-    	case java.sql.Types.CHAR:
-    		return char.class;
-    	case java.sql.Types.VARCHAR:
-    	case java.sql.Types.LONGVARCHAR:
-    	case java.sql.Types.NCHAR:
-    	case java.sql.Types.NVARCHAR:
-    	case java.sql.Types.LONGNVARCHAR:
-    		return String.class;
+    	case java.sql.Types.BIT:
+    	case java.sql.Types.BOOLEAN:
+    		return Boolean.class;
+    	case java.sql.Types.TINYINT:
+    		return byte.class;
+    	case java.sql.Types.SMALLINT:
+    		return short.class;
+    	case java.sql.Types.INTEGER:
+    		return int.class;
+    	case java.sql.Types.BIGINT:
+    		return long.class;
+    	case java.sql.Types.REAL:
+    		return float.class;
+    	case java.sql.Types.FLOAT:
+    	case java.sql.Types.DOUBLE:
+    		return double.class;
+    	case java.sql.Types.BINARY:
+    	case java.sql.Types.VARBINARY:
+    	case java.sql.Types.LONGVARBINARY:
+    		return byte[].class;
     	case java.sql.Types.DATE:
     		return java.sql.Date.class;
     	case java.sql.Types.TIME:
     		return java.sql.Time.class;
     	case java.sql.Types.TIMESTAMP:
     		return java.sql.Timestamp.class;
-    	case java.sql.Types.BOOLEAN:
-    		return Boolean.class;
-    	case java.sql.Types.BINARY:
-    	case java.sql.Types.VARBINARY:
-    	case java.sql.Types.LONGVARBINARY:
-    	case java.sql.Types.BLOB:
-    	case java.sql.Types.CLOB:
-    	case java.sql.Types.ARRAY:
-    	case java.sql.Types.NCLOB:
-    		return Array.class;
-    		default:
-    			return null;
+    	case java.sql.Types.DATALINK:
+    		return java.net.URL.class;
+    	default:
+    		return Object.class;
     	}
     }
 
@@ -162,14 +166,17 @@ public class JDBCSource implements InputSource, QueryableInputSource, OutputSour
             
             ResultSet resultSet = null;
             if (joinTables == null || joinTables.length == 0) {
-	            resultSet = dataService.findRecords(this.table, queryParameters.toArray(new QueryParameter[0]));
-            } else {
-            	String[] tableNames = new String[joinTables.length+1];
-            	tableNames[0] = table;
-            	for(int i = 0; i < joinTables.length; i++) {
-            		tableNames[i+1] = joinTables[i];
+            	if (this.queryColumns == null) {
+		            resultSet = dataService.findRecords(this.table, queryParameters.toArray(new QueryParameter[0]));
+            	} else {
+            		resultSet = dataService.findRecords(table, queryColumns.toArray(new String[0]), queryParameters)
             	}
-//            	resultSet = dataService.findRecords(tableNames, joinParameters.toArray(new QueryParameter[0]), queryParameters.toArray(new QueryParameter[0]));
+            } else {
+            	if (queryColumns == null) {
+	            	resultSet = dataService.findRecords(joinParameters, queryParameters.toArray(new QueryParameter[0]));
+            	} else {
+	            	resultSet = dataService.findRecords(joinParameters, queryColumns.toArray(new String[0]), queryParameters.toArray(new QueryParameter[0]));
+            	}
             }
             return new JDBCIterator(resultSet);
         }
@@ -235,15 +242,19 @@ public class JDBCSource implements InputSource, QueryableInputSource, OutputSour
 	
 	private void initStaticQueryParameters() {
 		this.staticQueryParameters = new ArrayList<QueryParameter>();
-		for(QueryArgument staticArg : this.staticQueryArguments) {
-			staticQueryParameters.add(toQueryParameter(staticArg));
+		if (staticQueryArguments != null) {
+			for(QueryArgument staticArg : this.staticQueryArguments) {
+				staticQueryParameters.add(toQueryParameter(staticArg));
+			}
 		}
 	}
 	
-	private void initJoinQueryParameters() {
-		this.joinParameters = new ArrayList<QueryParameter>();
-		for(JoinArgument joinArg : joinArguments) {
-			joinParameters.add(toQueryParameter(joinArg));
+	private void initJoinParameters() {
+		this.joinParameters = new ArrayList<JoinParameter>();
+		if (joinArguments != null) {
+			for(JoinArgument joinArg : joinArguments) {
+				joinParameters.add(toJoinParameter(joinArg));
+			}
 		}
 	}
 	
@@ -280,21 +291,18 @@ public class JDBCSource implements InputSource, QueryableInputSource, OutputSour
 		return null;
 	}
 
-	private QueryParameter toQueryParameter(JoinArgument joinArg) {
+	private JoinParameter toJoinParameter(JoinArgument joinArg) {
 		if (joinArg != null) {
-			String leftColumnName = joinArg.getLeftTableColumn();
-			String rightColumnName = joinArg.getRightTableColum();
-			QueryType queryType = null;
-			switch(joinArg.getJoinType()) {
-			case INNER_JOIN:
-				queryType = QueryType.INNER_JOIN;
-				break;
-			case OUTER_JOIN:
-				queryType = QueryType.OUTER_JOIN;
-				break;
-			}
-			return new QueryParameter(leftColumnName, queryType, rightColumnName);
+			com.dendreon.intellivenge.dataservice.JoinType joinType = com.dendreon.intellivenge.dataservice.JoinType.valueOf(com.dendreon.intellivenge.dataservice.JoinType.class, joinArg.getJoinType().name());
+			return new JoinParameter(joinArg.getLeftTableName(), joinArg.getRightTableName(), joinArg.getLeftColumnName(), joinArg.getRightColumnName(), joinType);
 		}
 		return null;
+	}
+	
+	public void addQueryColumn(String queryColumnName) {
+		if (queryColumns == null) {
+			queryColumns = new ArrayList<String>();
+		}
+		this.queryColumns.add(queryColumnName);
 	}
 }

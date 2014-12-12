@@ -17,13 +17,23 @@ public class JoinArgumentImpl implements JoinArgument {
 	}
 
 	@Override
-	public String getLeftTableColumn() {
-		return leftTableName + "." + leftColumnName;
+	public String getLeftTableName() {
+		return leftTableName;
+	}
+		
+	@Override
+	public String getLeftColumnName() {
+		return leftColumnName;
 	}
 
 	@Override
-	public String getRightTableColum() {
-		return rightTableName + "." + rightColumnName;
+	public String getRightTableName() {
+		return rightTableName;
+	}
+
+	@Override
+	public String getRightColumnName() {
+		return rightColumnName;
 	}
 
 	@Override

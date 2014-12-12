@@ -27,7 +27,7 @@ public class JDBCIterator implements InputSourceIterator
     {
     	try {
     		if (resultSet != null) {
-				return resultSet.isLast();
+				return !resultSet.isLast();
     		}
 		} catch (SQLException e) {
 			throw new RuntimeException("Unable to determine iterator position on resultSet", e);

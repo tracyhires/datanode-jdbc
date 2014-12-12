@@ -1,9 +1,13 @@
 package com.dendreon.datatree.jdbc;
 
 public interface JoinArgument {
-	public String getLeftTableColumn();
+	public String getLeftTableName();
 	
-	public String getRightTableColum();
+	public String getLeftColumnName();
+	
+	public String getRightTableName();
+	
+	public String getRightColumnName();
 	
 	public JoinType getJoinType();
 }
